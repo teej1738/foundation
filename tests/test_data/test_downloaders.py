@@ -388,6 +388,68 @@ class TestFundingDownloader:
         assert contract_cols == expected
 
 
+# ── Regression Tests (real-data bugs) ───────────────────────────────
+
+
+class TestRegressionBugs:
+    """Regression tests for bugs found during real Binance data downloads."""
+
+    def test_csv_with_header_row_detected_and_removed(self, tmp_path):
+        """Bug 1: Post-2021 Binance CSVs include header rows that must be stripped."""
+        header = ["open_time", "open", "high", "low", "close", "volume",
+                  "close_time", "quote_volume", "trade_count",
+                  "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
+        data_row = _make_kline_row(1609459200000)
+        zip_bytes = _make_zip_csv([data_row], header=header)
+
+        dl = CandleDownloader(tmp_path, interval="5m")
+        df = dl._extract_csv_from_zip(zip_bytes)
+        # Header row should be removed, leaving only 1 data row
+        assert len(df) == 1
+        # First cell should be numeric (timestamp), not "open_time"
+        assert str(df.iloc[0, 0]) != "open_time"
+
+    @patch.object(BaseDownloader, "_verify_sha256", return_value=True)
+    @patch.object(BaseDownloader, "_http_get")
+    def test_candle_non_numeric_timestamp_dropped(self, mock_get, mock_sha, tmp_path):
+        """Bug 2: If a header row leaks through, non-numeric timestamps are dropped."""
+        # Simulate a CSV where the header row is present as data
+        header_as_data = ["open_time", "open", "high", "low", "close", "volume",
+                          "close_time", "quote_volume", "trade_count",
+                          "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
+        real_row = _make_kline_row(1609459200000)
+        # Build a ZIP with NO header (so _extract_csv reads as data),
+        # but first row IS the header strings
+        zip_bytes = _make_zip_csv([header_as_data, real_row])
+        mock_get.return_value = zip_bytes
+
+        dl = CandleDownloader(tmp_path, interval="5m")
+        df = dl.download_month(2021, 1)
+        # The header-as-data row gets stripped by _extract_csv_from_zip,
+        # so only the real data row remains
+        assert df is not None
+        assert len(df) == 1
+        assert df["open"].iloc[0] == 29000.0
+
+    @patch("foundation.data.downloaders.funding.time.sleep")
+    @patch.object(FundingRateDownloader, "_http_get_json")
+    def test_funding_empty_mark_price_becomes_nan(self, mock_get, mock_sleep, tmp_path):
+        """Bug 3: Empty markPrice strings should become NaN, not raise."""
+        mock_get.side_effect = [
+            [
+                {"fundingTime": 1609459200000, "fundingRate": "0.0001", "markPrice": "29000.0"},
+                {"fundingTime": 1609488000000, "fundingRate": "0.0002", "markPrice": ""},
+            ],
+            [],
+        ]
+        dl = FundingRateDownloader(tmp_path)
+        path = dl.run("2021-01-01", "2021-01-02")
+        df = pd.read_parquet(path)
+        assert len(df) == 2
+        assert df["funding_rate"].iloc[1] == pytest.approx(0.0002)
+        assert pd.isna(df["mark_price"].iloc[1])  # Empty string -> NaN
+
+
 # ── TestLiquidationStub ─────────────────────────────────────────────
 
 

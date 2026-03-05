@@ -10,7 +10,11 @@ from pathlib import Path
 
 import pandas as pd
 
+import structlog
+
 from foundation.data.downloaders.base import BaseDownloader, DownloadError
+
+logger = structlog.get_logger(__name__)
 
 # Binance kline CSVs have 12 columns, no header
 KLINE_COLUMNS = [
@@ -102,6 +106,13 @@ class CandleDownloader(BaseDownloader):
 
     def _process(self, df: pd.DataFrame) -> pd.DataFrame:
         """Normalize timestamps and select output columns."""
+        # Drop any rows with non-numeric timestamps (residual header rows)
+        numeric_mask = pd.to_numeric(df["open_time"], errors="coerce").notna()
+        if not numeric_mask.all():
+            n_bad = int((~numeric_mask).sum())
+            logger.warning("dropping non-numeric timestamp rows", count=n_bad)
+            df = df[numeric_mask].reset_index(drop=True)
+
         ts = df["open_time"].astype(float)
         # Normalize microsecond timestamps to milliseconds
         mask = ts > US_THRESHOLD

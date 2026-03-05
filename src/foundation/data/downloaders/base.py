@@ -167,8 +167,21 @@ class BaseDownloader(ABC):
             )
         return True
 
+    # Known header strings in Binance Vision CSVs (post-2021 files include headers)
+    _HEADER_STRINGS = frozenset({
+        "open_time", "open", "high", "low", "close", "volume", "close_time",
+        "quote_volume", "trade_count", "taker_buy_volume", "taker_buy_quote_volume",
+        "ignore", "symbol", "create_time", "sum_open_interest",
+        "sum_open_interest_value", "count_toptrader_long_short_ratio",
+        "sum_toptrader_long_short_ratio", "count_long_short_ratio",
+        "sum_taker_long_short_vol_ratio",
+    })
+
     def _extract_csv_from_zip(self, zip_bytes: bytes) -> pd.DataFrame:
         """Extract first CSV from in-memory ZIP archive.
+
+        Reads with header=None, then detects and removes header rows that
+        appear in post-2021 Binance Vision files.
 
         Raises DownloadError if ZIP is empty or contains no CSV files.
         """
@@ -177,4 +190,11 @@ class BaseDownloader(ABC):
             if not csv_names:
                 raise DownloadError("ZIP archive contains no CSV files")
             with zf.open(csv_names[0]) as f:
-                return pd.read_csv(f, header=None)
+                df = pd.read_csv(f, header=None)
+
+        # Detect header row: if first cell is a known header string, drop it
+        if len(df) > 0 and str(df.iloc[0, 0]).strip().lower() in self._HEADER_STRINGS:
+            logger.debug("detected header row in CSV, dropping")
+            df = df.iloc[1:].reset_index(drop=True)
+
+        return df

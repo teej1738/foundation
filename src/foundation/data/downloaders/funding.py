@@ -124,8 +124,12 @@ class FundingRateDownloader:
         df["timestamp_utc"] = pd.to_datetime(
             df["fundingTime"], unit="ms", utc=True
         )
-        df["funding_rate"] = df["fundingRate"].astype(float)
-        df["mark_price"] = df["markPrice"].astype(float)
+        df["funding_rate"] = pd.to_numeric(df["fundingRate"], errors="coerce")
+        df["mark_price"] = pd.to_numeric(df["markPrice"], errors="coerce")
+
+        n_coerced = int(df["mark_price"].isna().sum())
+        if n_coerced > 0:
+            logger.warning("coerced empty markPrice to NaN", count=n_coerced)
 
         df = df[["timestamp_utc", "funding_rate", "mark_price"]]
         return df.sort_values("timestamp_utc").reset_index(drop=True)
