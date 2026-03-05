@@ -1,130 +1,115 @@
-# Foundation
-
-Clean-room production rewrite of the BTC perpetual futures ML trading system.
-NOT a refactor of BTCDataset_v2 -- a ground-up rebuild using validated findings
-and 45 architecture decisions from the prototype phase.
-
----
+# Foundation (Prism)
 
 ## Mission
 
-This repo contains **Prism**, the strategy simulation engine for
-Project Meridian. Prism systematically explores the feature/label/
-timeframe/parameter space to discover viable strategy configurations.
-Beam (the live trading engine) is a separate, future system.
-See trading-brain/VISION.md for the full mission statement.
-BTC first, NQ/ES later -- instrument differences are config, not code.
+This repo contains **Prism**, the strategy simulation engine for Project Meridian.
+Prism discovers viable BTC/USDT perpetual trading strategies by searching a
+combinatorial space of structural conditions x labels x timeframes x parameters.
+See trading-brain/VISION.md for full mission context.
 
 ---
 
-## Relationship to other repos
+## Master Spec
+
+**trading-brain/SYSTEM_DESIGN.md** is the source of truth for what to build.
+Read relevant sections per task type:
+
+| Task | SYSTEM_DESIGN.md Sections |
+|------|--------------------------|
+| Any coding task | 1 (Overview), 2 (Protocols), 13 (Module Structure), 14 (Phase 2 Breakdown) |
+| Feature work | + Section 4 (Feature Engine) |
+| Label work | + Section 5 (Label Generation) |
+| Training work | + Section 6 (Walk-Forward Training) |
+| Cost/simulation | + Section 7 (Cost Model), 8 (Trade Simulator) |
+| Gate work | + Section 9 (Gate Battery) |
+| Search work | + Section 10 (Search Orchestration) |
+
+---
+
+## Current State
+
+- Phase 1 complete: **147 tests** passing
+- Existential experiment: **VIABLE** -- 12/12 configs pass (AD-50)
+  - 1H ATR: AUC 0.71-0.74, cost_R 0.14-0.17
+  - 4H ATR: AUC 0.66-0.68, cost_R 0.07-0.09
+  - Best: 4H ATR short, per-trade Sharpe 0.3338
+- Phase 2: **GO** -- building feature engine + simulator
+- Calibration: **isotonic** regression per seed, then average (NOT Platt)
+- Timestamps: bar-open UTC milliseconds everywhere (AD-48)
+- Serialization: LightGBM .txt + isotonic JSON, no pickle (AD-49)
+- Architecture decisions: **50 total** (AD-1 through AD-50)
+
+---
+
+## Repos
 
 | Repo | Path | Role |
 |------|------|------|
-| trading-brain | C:/Users/tjall/Desktop/Trading/trading-brain | Shared knowledge layer (decisions, research, findings) |
-| BTCDataset_v2 | C:/Users/tjall/Desktop/Trading/BTCDataset_v2 | FROZEN prototype (D01-D53). Reference only |
-| Foundation | C:/Users/tjall/Desktop/Trading/Foundation | This repo. Contains Prism |
+| Foundation | C:/Users/tjall/Desktop/Trading/Foundation | This repo (Prism engine) |
+| trading-brain | C:/Users/tjall/Desktop/Trading/trading-brain | Knowledge layer (decisions, research) |
+| BTCDataset_v2 | C:/Users/tjall/Desktop/Trading/BTCDataset_v2 | FROZEN prototype. Reference only |
 
 ---
 
-## Session protocol
-
-1. Read trading-brain/CLAUDE.md
-2. Read trading-brain/STATUS.md
-3. Read trading-brain/TODO.md
-4. Read Foundation/STATUS.md
-5. Read Foundation/DECISIONS.md (for AD-F entries)
-
-At session end: update STATUS.md, DECISIONS.md (if new AD-F), commit.
-
----
-
-## Current state
-
-Phase 1 IN PROGRESS. 122 tests pass. No real data or models yet.
-- Phase 0: Scaffold, Pydantic schemas, TOML loader, data contracts, CLI
-- Phase 1A: Download infrastructure (candles, OI, funding, liquidation stub)
-- Phase 1B: Holdout guard, sequential splits, embargo validation
-- Phase 1C: Planted signal diagnostic (AD-22)
-- Phase 1D: Processing pipeline (raw loader, aligner, validator, orchestrator)
-Next: Phase 1E validation against BTCDataset_v2.
-
----
-
-## Directory structure
+## Key Files
 
 ```
 Foundation/
-  config/instruments/    -- instrument configs (btcusdt_5m.toml)
-  config/environments/   -- dev/staging/prod environment overrides
-  config/experiments/    -- experiment configs (_template.toml)
-  src/foundation/        -- all source code
-    config/              -- Pydantic config models + logging setup
-    data/contracts.py    -- DataFrame schema contracts (AD-4)
-    data/downloaders/    -- HTTP downloaders (candles, OI, funding)
-    data/processing/     -- raw -> processed pipeline (loader, aligner, validator)
-    data/holdout.py      -- sequential_split, get_fold_indices
-    data/guard.py        -- HoldoutGuard with evaluation_mode
-    data/embargo.py      -- embargo validation
-    data/splits.py       -- SplitConfig, FoldSpec, SplitResult
-    diagnostics/         -- planted signal test (AD-22)
-    features/            -- ict/, ta/, regime/, microstructure/ (stubs)
-    labels/              -- triple-barrier labeler (stub)
-    engine/              -- walk-forward, simulation, cost model (stub)
-    validation/          -- gates, CSCV, DSR, causality (stub)
-    experiment/          -- runner, optimizer (stub)
-  tests/                 -- mirrors src/ structure (122 tests)
-  data/                  -- raw/, processed/, holdout/
-  experiments/           -- configs/, models/, shap/, results/
-  outputs/               -- reports, charts
+  pyproject.toml                    -- deps, entry point
+  config/instruments/btcusdt_5m.toml -- instrument config
+  config/experiments/_template.toml  -- experiment template
+  config/environments/dev.toml       -- env overrides
+  src/foundation/
+    cli.py                          -- Click CLI (download, process, diagnose)
+    config/schema.py                -- 35+ Pydantic models, extra="forbid"
+    config/loader.py                -- TOML loading
+    config/logging.py               -- structlog setup
+    data/contracts.py               -- DataFrame schema validation
+    data/downloaders/               -- candles, OI, funding (base.py + 4 downloaders)
+    data/processing/                -- raw -> processed pipeline (5 files)
+    data/holdout.py + guard.py      -- sequential split + holdout guard
+    data/embargo.py + splits.py     -- embargo validation + split config
+    data/guarded_dataset.py         -- fold-aware data access
+    diagnostics/                    -- planted signal test (AD-22)
+    features/                       -- Phase 2 (stubs: ict/, ta/, regime/, microstructure/)
+    labels/                         -- Phase 2 (stub)
+    engine/                         -- Phase 2 (stub)
+    validation/                     -- Phase 4 (stub)
+    experiment/                     -- Phase 3 (stub)
+  tests/                            -- mirrors src/ (147 tests)
 ```
 
 ---
 
-## Architecture decisions
+## Conventions
 
-45 project-level ADs (AD-1 to AD-45) in trading-brain/log/DECISIONS.md.
-Foundation-specific ADs use AD-F prefix in this repo's DECISIONS.md.
-
----
-
-## Key design principles
-
-- TOML + Pydantic configs -- no hardcoded parameters anywhere
-- Causality-first testing -- every feature must pass before use
-- Multi-seed by default -- K=5 seeds, report mean +/- std (AD-32)
-- Cost-adjusted metrics -- dynamic cost model with spread widening (AD-31)
-- Per-trade Sharpe x sqrt(N) -- not daily Sharpe (AD-43)
-- Rolling 12-month windows -- not expanding from 2020 (AD-13)
-- Platt calibration -- not isotonic at small N (AD-21)
+- **Pydantic:** extra="forbid" on ALL models (AD-4)
+- **Logging:** structlog throughout (AD-6)
+- **CLI:** JSON output from all commands (AD-8)
+- **Tests:** pytest-first, all synthetic data (AD-3)
+- **Config:** TOML files, never hardcoded values
+- **Features:** must declare FeatureMeta with confirmed_at (AD-47)
+- **Timestamps:** bar-open UTC ms, never tz-naive (AD-48)
+- **Serialization:** no pickle anywhere (AD-49)
+- **Seeds:** K=5 fixed seeds [42, 43, 44, 99, 123] (AD-32)
+- **Costs:** dynamic cost model with spread widening (AD-31)
+- **Metrics:** per-trade Sharpe x sqrt(N), not daily Sharpe (AD-43)
+- **Windows:** rolling 12-month, not expanding from 2020 (AD-13)
 
 ---
 
-## Anti-patterns (do NOT)
+## Do Not
 
-1. Hardcode feature parameters -- all params from TOML config
-2. Run experiments without a config file -- runner refuses
-3. Treat Sharpe 12.8 as live target -- realistic: 1.5-2.5
-4. Skip causality tests after modifying features
-5. Add features without registering them
-6. Touch holdout without ceremony -- HoldoutViolationError
-7. Re-add d1_trend as mandatory filter -- confirmed dead weight
-8. Use Silver Bullet / Power of 3 as primary features
-9. Optimize parameters without DSR multiple-testing correction
+1. Modify BTCDataset_v2 (frozen, reference only)
+2. Use daily Sharpe as a gate (retired per AD-43/AD-44)
+3. Trust single-seed results (K=5 per AD-32, 76% Sharpe variance)
+4. Use Platt scaling (use isotonic regression, AD-47)
+5. Use is_unbalance in LightGBM (use sample_weight via uniqueness, AD-29)
+6. Hardcode feature parameters (all from TOML config)
+7. Skip causality tests after modifying features
+8. Add features without FeatureMeta registration
+9. Touch holdout without ceremony (HoldoutViolationError)
 10. Commit .env, holdout data, or API keys
-
----
-
-## What to read (by task)
-
-| Task | Read |
-|------|------|
-| Starting session | STATUS.md, trading-brain/STATUS.md, trading-brain/TODO.md |
-| Running experiments | KNOWLEDGE.md, config/experiments/_template.toml |
-| Adding features | config/instruments/btcusdt_5m.toml, trading-brain/knowledge/KNOWLEDGE.md |
-| Making decisions | DECISIONS.md, trading-brain/log/DECISIONS.md |
-| Understanding design | BTCDataset_v2/outputs/FOUNDATION_DESIGN.md |
-| Debugging validation | KNOWLEDGE.md (warnings table) |
 
 ---
 
@@ -133,5 +118,4 @@ Foundation-specific ADs use AD-F prefix in this repo's DECISIONS.md.
 - Python 3.11+ (3.14 on dev machine)
 - Windows 11, cp1252 encoding -- never use Unicode box-drawing or em-dashes
 - Install: `pip install -e ".[dev]"`
-- Copy .env.example to .env and fill in API keys
 - Run tests: `pytest`
