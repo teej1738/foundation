@@ -73,9 +73,12 @@ def cmd_download(args: argparse.Namespace) -> int:
             paths = dl_oi.run(sy, sm, ey, em)
             result = {"status": "ok", "dataset": dataset, "files_saved": len(paths)}
         elif dataset == "funding":
+            import calendar as _cal
             dl_fund = FundingRateDownloader(output_dir)
             start = f"{args.start}-01"
-            end = f"{args.end}-28"
+            ey, em = map(int, args.end.split("-"))
+            _, last_day = _cal.monthrange(ey, em)
+            end = f"{args.end}-{last_day}"
             path = dl_fund.run(start, end)
             result = {"status": "ok", "dataset": dataset, "files_saved": 1 if path.exists() else 0}
         else:
@@ -162,6 +165,9 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def main() -> int:
     """CLI entry point."""
+    from foundation.config.logging import configure_logging
+    configure_logging()
+
     parser = argparse.ArgumentParser(
         prog="foundation",
         description="Foundation ML trading system CLI",

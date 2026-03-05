@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -15,6 +16,10 @@ from foundation.data.processing.loader import (
 from foundation.data.processing.models import PipelineResult
 from foundation.data.processing.validate import validate_processed
 
+if TYPE_CHECKING:
+    from foundation.data.guarded_dataset import GuardedDataset
+    from foundation.data.splits import SplitConfig
+
 logger = structlog.get_logger(__name__)
 
 
@@ -23,7 +28,8 @@ def run_pipeline(
     output_dir: str | Path,
     interval: str,
     symbol: str = "BTCUSDT",
-) -> PipelineResult:
+    split_config: SplitConfig | None = None,
+) -> PipelineResult | tuple[PipelineResult, GuardedDataset]:
     """Run the full processing pipeline: load -> align -> validate -> save.
 
     Parameters
@@ -36,11 +42,16 @@ def run_pipeline(
         Candle interval ("1m" or "5m").
     symbol : str
         Trading pair symbol.
+    split_config : SplitConfig or None
+        If provided, creates a GuardedDataset with validated folds.
+        The return type becomes tuple[PipelineResult, GuardedDataset].
 
     Returns
     -------
     PipelineResult
-        Pipeline stats and validation results.
+        Pipeline stats and validation results (when split_config is None).
+    tuple[PipelineResult, GuardedDataset]
+        Pipeline stats and guarded dataset (when split_config is provided).
     """
     raw_dir = Path(raw_dir)
     output_dir = Path(output_dir)
@@ -98,7 +109,7 @@ def run_pipeline(
         passed=validation.passed,
     )
 
-    return PipelineResult(
+    pipeline_result = PipelineResult(
         interval=interval,
         input_rows=input_rows,
         output_rows=len(aligned),
@@ -107,3 +118,19 @@ def run_pipeline(
         output_path=str(output_path),
         elapsed_seconds=round(elapsed, 3),
     )
+
+    if split_config is not None:
+        from foundation.data.guarded_dataset import GuardedDataset
+
+        # Ensure aligned has DatetimeIndex for splitting
+        if "bar_start_ts_utc" in aligned.columns:
+            aligned = aligned.set_index("bar_start_ts_utc")
+
+        guarded = GuardedDataset(aligned, split_config)
+        logger.info(
+            "guarded_dataset_attached",
+            n_folds=guarded.n_folds,
+        )
+        return pipeline_result, guarded
+
+    return pipeline_result

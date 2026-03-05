@@ -30,8 +30,13 @@ At session end: update STATUS.md, DECISIONS.md (if new AD-F), commit.
 
 ## Current state
 
-Phase 0 scaffold complete. No experiments, no data, no models.
-Next: Phase 1 data pipeline.
+Phase 1 IN PROGRESS. 122 tests pass. No real data or models yet.
+- Phase 0: Scaffold, Pydantic schemas, TOML loader, data contracts, CLI
+- Phase 1A: Download infrastructure (candles, OI, funding, liquidation stub)
+- Phase 1B: Holdout guard, sequential splits, embargo validation
+- Phase 1C: Planted signal diagnostic (AD-22)
+- Phase 1D: Processing pipeline (raw loader, aligner, validator, orchestrator)
+Next: Phase 1E validation against BTCDataset_v2.
 
 ---
 
@@ -43,15 +48,21 @@ Foundation/
   config/environments/   -- dev/staging/prod environment overrides
   config/experiments/    -- experiment configs (_template.toml)
   src/foundation/        -- all source code
-    config/              -- Pydantic config models
-    data/downloaders/    -- data pipeline
-    features/            -- ict/, ta/, regime/, microstructure/
-    labels/              -- triple-barrier labeler
-    engine/              -- walk-forward, simulation, cost model
-    validation/          -- gates, CSCV, DSR, causality
-    experiment/          -- runner, optimizer
-    logging/             -- structured logging
-  tests/                 -- mirrors src/ structure
+    config/              -- Pydantic config models + logging setup
+    data/contracts.py    -- DataFrame schema contracts (AD-4)
+    data/downloaders/    -- HTTP downloaders (candles, OI, funding)
+    data/processing/     -- raw -> processed pipeline (loader, aligner, validator)
+    data/holdout.py      -- sequential_split, get_fold_indices
+    data/guard.py        -- HoldoutGuard with evaluation_mode
+    data/embargo.py      -- embargo validation
+    data/splits.py       -- SplitConfig, FoldSpec, SplitResult
+    diagnostics/         -- planted signal test (AD-22)
+    features/            -- ict/, ta/, regime/, microstructure/ (stubs)
+    labels/              -- triple-barrier labeler (stub)
+    engine/              -- walk-forward, simulation, cost model (stub)
+    validation/          -- gates, CSCV, DSR, causality (stub)
+    experiment/          -- runner, optimizer (stub)
+  tests/                 -- mirrors src/ structure (122 tests)
   data/                  -- raw/, processed/, holdout/
   experiments/           -- configs/, models/, shap/, results/
   outputs/               -- reports, charts
