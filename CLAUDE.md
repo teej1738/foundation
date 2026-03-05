@@ -8,11 +8,12 @@ and 45 architecture decisions from the prototype phase.
 
 ## Mission
 
-Foundation is a strategy simulation and discovery engine, not a
-single-strategy trading system. See trading-brain/VISION.md for
-the full mission statement. All code should be designed to support
-systematic exploration of the feature/label/timeframe/parameter
-space across multiple instruments (BTC, NQ, ES).
+This repo contains **Prism**, the strategy simulation engine for
+Project Meridian. Prism systematically explores the feature/label/
+timeframe/parameter space to discover viable strategy configurations.
+Beam (the live trading engine) is a separate, future system.
+See trading-brain/VISION.md for the full mission statement.
+BTC first, NQ/ES later -- instrument differences are config, not code.
 
 ---
 
@@ -22,7 +23,7 @@ space across multiple instruments (BTC, NQ, ES).
 |------|------|------|
 | trading-brain | C:/Users/tjall/Desktop/Trading/trading-brain | Shared knowledge layer (decisions, research, findings) |
 | BTCDataset_v2 | C:/Users/tjall/Desktop/Trading/BTCDataset_v2 | FROZEN prototype (D01-D53). Reference only |
-| Foundation | C:/Users/tjall/Desktop/Trading/Foundation | This repo. Production system |
+| Foundation | C:/Users/tjall/Desktop/Trading/Foundation | This repo. Contains Prism |
 
 ---
 
