@@ -1,0 +1,52 @@
+[instrument]
+name = "BTCUSDT_PERP"
+exchange = "binance"
+type = "perpetual_future"
+base_timeframe = "5m"
+structural_base_timeframe = "1m"  # AD-26: 1-min for structural features
+bars_per_day = 288
+bars_per_year = 105120
+tick_size = 0.10
+step_size = 0.001
+min_notional = 100  # USDT
+
+[data]
+raw_dir = "data/raw/btcusdt"
+candles_1m = "data/raw/btcusdt/candles/BTCUSDT_1m.parquet"
+candles_5m = "data/raw/btcusdt/candles/BTCUSDT_5m.parquet"
+oi_metrics = "data/raw/btcusdt/oi_metrics/BTCUSDT_oi.parquet"
+aggtrades_dir = "data/raw/btcusdt/aggtrades/"
+liquidations = "data/raw/btcusdt/liquidations/BTCUSDT_liq.parquet"
+funding_rates = "data/raw/btcusdt/BTCUSDT_funding.parquet"
+train_path = "data/processed/BTCUSDT_5m_train.parquet"
+holdout_path = "data/holdout/BTCUSDT_5m_holdout.parquet"
+
+[data.date_range]
+start = "2020-01-01"
+end = "2026-02-28"
+
+[holdout]
+start_date = "2025-03-01"
+end_date = "2026-02-28"
+status = "CONSUMED"  # D55b evaluation used this holdout
+embargo_bars = 288
+
+[validation.oos]
+# AD-42: Sequential OOS replacing fixed holdout
+mode = "sequential"
+test_window = "3M"
+step = "3M"
+one_shot = true
+
+[columns]
+timestamp = "bar_start_ts_utc"
+open = "open"
+high = "high"
+low = "low"
+close = "close"
+volume = "volume"
+
+[htf_timeframes]
+# Timeframes computed from base via resampling
+available = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
+# merge_asof on bar_end_ts_utc with direction="backward" (verified HTF CLEAN)

@@ -1,0 +1,7 @@
+[environment]
+name = "dev"
+log_level = "DEBUG"
+data_subset = 50000  # use first 50K rows for fast iteration
+holdout_access = "blocked"  # never access holdout in dev
+parallel_seeds = 1  # single seed for fast iteration
+deterministic = true

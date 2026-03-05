@@ -1,0 +1,7 @@
+# Holdout Access Log
+# Every access to holdout data is logged here with timestamp and purpose.
+# Format: ISO_TIMESTAMP | PURPOSE | USER | SCRIPT
+# The holdout guard checks this file before granting access.
+#
+# CONSUMED: D55b evaluation on 2026-03-04 (BTCDataset_v2, not Foundation)
+# New holdout strategy: sequential 3M OOS windows (AD-42)

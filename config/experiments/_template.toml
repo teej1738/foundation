@@ -1,0 +1,191 @@
+[experiment]
+name = ""  # REQUIRED: unique experiment name
+instrument = "btcusdt_5m"  # references config/instruments/{name}.toml
+description = ""
+
+[direction.long]
+enabled = true
+
+[direction.long.label]
+type = "triple_barrier"
+side = "long"
+atr_timeframe = "5m"  # AD-27: searchable, can be "1h", "4h", etc.
+atr_period = 14
+atr_multiplier = 1.0  # stop = atr_multiplier * ATR
+r_target = 2.0  # take profit = r_target * stop distance
+horizon_bars = "auto"  # AD-30: auto-computed from diffusion scaling
+horizon_scaling_exponent = 2.0  # quadratic scaling
+horizon_perturbation = 1.0  # multiplier [0.7, 1.0, 1.4]
+base_horizon_bars = 48  # reference for auto-computation
+base_stop_pct = 0.00142  # reference (5m ATR median)
+
+[direction.long.features]
+mode = "explicit"
+include = []  # list of feature names from registry
+
+[direction.long.model]
+algorithm = "lightgbm"
+seeds = [42, 43, 44, 99, 123]  # AD-32: K=5 fixed seeds
+# LightGBM params (AD-15: min_child_samples >= 200)
+n_estimators = 1000
+learning_rate = 0.05
+num_leaves = 31
+max_depth = -1
+min_child_samples = 200  # AD-15
+subsample = 0.8
+colsample_bytree = 0.8
+reg_alpha = 1.0
+reg_lambda = 5.0
+is_unbalance = true  # AD-24: auto-computes scale_pos_weight
+deterministic = true  # CPU only, AD-32
+force_col_wise = true
+
+[direction.long.calibration]
+method = "platt"  # AD-21: Platt, not isotonic
+label_smoothing = true  # Lin/Lin/Weng 2007
+min_samples = 50  # pool backward if below this
+
+[direction.long.decision]
+# AD-36: Expected-utility decision framework
+tau_ev = 0.05  # minimum edge in R-units
+delta_ev = 0.05  # conflict buffer in R-units
+
+[direction.short]
+enabled = false  # AD-35: enable when short model is ready
+
+[direction.short.label]
+type = "triple_barrier"
+side = "short"
+atr_timeframe = "5m"
+atr_period = 14
+atr_multiplier = 1.0
+r_target = 2.0
+horizon_bars = "auto"
+horizon_scaling_exponent = 2.0
+horizon_perturbation = 1.0
+base_horizon_bars = 48
+base_stop_pct = 0.00142
+
+[direction.short.features]
+mode = "explicit"
+include = []
+
+[direction.short.model]
+algorithm = "lightgbm"
+seeds = [42, 43, 44, 99, 123]
+n_estimators = 1000
+learning_rate = 0.05
+num_leaves = 31
+max_depth = -1
+min_child_samples = 200
+subsample = 0.8
+colsample_bytree = 0.8
+reg_alpha = 1.0
+reg_lambda = 5.0
+is_unbalance = true
+deterministic = true
+force_col_wise = true
+
+[direction.short.calibration]
+method = "platt"
+label_smoothing = true
+min_samples = 50
+
+[direction.short.decision]
+tau_ev = 0.05
+delta_ev = 0.05
+
+[conflict]
+# AD-36: conflict resolution when both models fire
+policy = "utility_margin"  # max EU with margin check
+margin_ev = 0.05  # minimum |EU_long - EU_short| to trade
+if_tie = "flat"  # stay flat if margin not met
+
+[portfolio]
+# AD-39: Quarter-Kelly with correlation discount
+sizing_method = "quarter_kelly"
+kelly_divisor = 4
+correlation_discount = true  # multiply by (1 - 0.5*rho)
+max_total_exposure = 0.30  # 30% of capital
+max_leverage = 5.0  # hard cap per AD-39
+initial_equity = 10000
+isolated_margin = true
+
+[walk_forward]
+mode = "rolling"  # AD-13: rolling, not expanding
+train_months = 12
+test_months = 3
+n_folds = 16
+val_fraction = 0.15  # AD-21: 70/15/15 split
+cal_fraction = 0.15
+sample_weight = "uniqueness"  # AD-29: AFML Ch4 uniqueness weighting
+
+[walk_forward.embargo]
+# AD-28: derived at runtime
+strategy = "derived"
+multiplier = 1.0  # AFML standard
+min_embargo_bars = 288
+
+[cost_model]
+# AD-31: Dynamic cost with spread widening and latency slippage
+method = "dynamic"
+spread_model = {type = "edge", base_bps = 3.0, atr_beta = 2.5}
+commission_bps = 5.0  # Binance VIP 0 taker (corrected from 4.0)
+funding_source = "binance_api"
+latency_slippage_bps = 5.0  # conservative default
+cost_filter_max = 0.8  # AD-31: skip trades where cost_R > 0.8
+
+[cost_model.funding_gates]
+# AD-40: funding rate asymmetry
+block_long_above = 0.001  # 0.10%/8h
+block_short_below = -0.001  # -0.10%/8h
+
+[gates]
+# AD-43: Promotion gates (binomial + EV + Sharpe + worst-fold)
+tier = "promotion"
+
+[gates.binomial_test]
+# Gate 1: cost-adjusted win rate > break-even
+break_even_p = 0.333  # for 2R target
+significance = 0.01
+correction = "holm"  # Holm-Bonferroni across folds
+
+[gates.cost_adjusted_ev]
+# Gate 2: post-cost EV per trade
+screen_threshold = 0.15  # +0.15R to screen
+promote_threshold = 0.25  # +0.25R to promote
+require_lcb_positive = true  # lower 95% CI > 0
+
+[gates.per_trade_sharpe]
+# Gate 3: per-trade Sharpe x sqrt(trades/year)
+min_annualized = 2.0  # minimum
+preferred_annualized = 3.0  # preferred
+
+[gates.worst_fold_ev]
+# Gate 4: no fold can be deeply negative
+min_ev = 0.05  # worst fold must have EV >= +0.05R
+
+[gates.seed_cv]
+max_cv = 0.30  # coefficient of variation across seeds
+
+[gates.diagnostics]
+# AD-44: Non-gating diagnostics
+calmar_min = 2.0
+max_consecutive_losses = 8
+rolling_wr_min = 0.45  # 50-trade rolling window
+spiegelhalter_z_red = 0.01  # p < 0.01 triggers investigation
+brier_skill_min = 0.05
+
+[optimizer]
+# AD-33: post-cost EV per calendar day
+objective = "ev_per_day_post_cost"
+# AD-37: three-stage hierarchical
+pruner = "wilcoxon"  # NOT median (AD-37)
+pruner_p_threshold = 0.10
+pruner_min_resource = 3  # minimum folds before pruning
+# AD-38: dead-end tracking
+dead_end_trials = 15
+dead_end_shap_threshold = 0.001
+# AD-41: persistence
+storage = "sqlite"
+study_dir = "experiments"

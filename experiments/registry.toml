@@ -1,0 +1,16 @@
+# Experiment Registry (AD-9: TOML format)
+# Each experiment appends its results here after completion.
+# Format: [[experiments]] array of tables.
+#
+# Example:
+# [[experiments]]
+# name = "btc_long_v1"
+# date = "2026-03-15"
+# config_hash = "abc123"
+# auc = 0.75
+# ev_post_cost = 0.25
+# per_trade_sharpe = 0.72
+# trades_per_year = 150
+# gates_passed = 4
+# gates_total = 4
+# status = "promoted"  # or "rejected" or "investigating"
