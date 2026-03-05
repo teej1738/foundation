@@ -119,6 +119,34 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_process(args: argparse.Namespace) -> int:
+    """Run data processing pipeline."""
+    from foundation.data.processing.pipeline import run_pipeline
+
+    try:
+        result = run_pipeline(
+            raw_dir=args.raw_dir,
+            output_dir=args.output_dir,
+            interval=args.interval,
+        )
+        output = {
+            "status": "ok",
+            "interval": result.interval,
+            "input_rows": result.input_rows,
+            "output_rows": result.output_rows,
+            "nan_columns": len(result.nan_counts),
+            "validation_passed": result.validation.passed,
+            "warnings": result.validation.warnings,
+            "output_path": result.output_path,
+            "elapsed_seconds": result.elapsed_seconds,
+        }
+        print(json.dumps(output, indent=2))
+        return 0 if result.validation.passed else 1
+    except Exception as e:
+        print(json.dumps({"status": "error", "message": str(e)}))
+        return 1
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     """Print Foundation status as JSON."""
     import foundation
@@ -162,6 +190,25 @@ def main() -> int:
     dl_parser.add_argument("--end", required=True, help="End month (YYYY-MM)")
     dl_parser.add_argument("--output", "-o", help="Output directory")
 
+    # process
+    proc_parser = sub.add_parser("process", help="Run data processing pipeline")
+    proc_parser.add_argument(
+        "--interval",
+        choices=["1m", "5m"],
+        required=True,
+        help="Candle interval to process",
+    )
+    proc_parser.add_argument(
+        "--raw-dir",
+        default="data/raw/btcusdt",
+        help="Raw data directory (default: data/raw/btcusdt)",
+    )
+    proc_parser.add_argument(
+        "--output-dir",
+        default="data/processed",
+        help="Output directory (default: data/processed)",
+    )
+
     # diagnose
     diag_parser = sub.add_parser("diagnose", help="Run pipeline diagnostics (AD-22)")
     diag_parser.add_argument(
@@ -191,6 +238,7 @@ def main() -> int:
     commands = {
         "validate": cmd_validate,
         "download": cmd_download,
+        "process": cmd_process,
         "diagnose": cmd_diagnose,
         "status": cmd_status,
     }
