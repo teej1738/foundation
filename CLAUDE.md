@@ -6,6 +6,16 @@ and 45 architecture decisions from the prototype phase.
 
 ---
 
+## Mission
+
+Foundation is a strategy simulation and discovery engine, not a
+single-strategy trading system. See trading-brain/VISION.md for
+the full mission statement. All code should be designed to support
+systematic exploration of the feature/label/timeframe/parameter
+space across multiple instruments (BTC, NQ, ES).
+
+---
+
 ## Relationship to other repos
 
 | Repo | Path | Role |
